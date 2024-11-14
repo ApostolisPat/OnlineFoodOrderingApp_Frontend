@@ -1,0 +1,387 @@
+1.
+    !Error!
+    Description:
+        Failed to configure a DataSource: 'url' attribute is not specified and no 
+            embedded datasource could be configured.
+
+        Reason: Failed to determine a suitable driver class
+    
+    Solution: We need to configure a database since we have MySQL dependency!
+        And also a mysql.driverclass (Search for mysql driver class springboot
+            and paste code in application.properties)
+
+    To connect, either go through admin on xampp
+    or mysql --user=root --password=root onlinefoodordering on cmd
+
+2.
+
+    FIRST CREATE ALL THE MODELS
+
+    Create a *User* Entity
+        -Anotate with @Entity
+        -Anotate with @Data (lombok) for getter setter methods
+        -Anotate with @NoArgsConstructor(lombok) and @AllArgsConstructor (lombok) 
+            for constructors
+        -Create properties
+            *id,fullName,email,password,role
+            *Anotate with @Id and @GenerateValue to automatically generate id in DBase
+
+    Create a *USER_ROLE* enum
+    Create *Order* Entity
+    Create order List property in User
+        -Define relations in List (One to Many) @OneToMany, use CascadeType to delete
+            all orders when the user is deleted, and map it to field named "customer"
+        -Anotate with @JsonIgnore (When you fetch the User, you don't need this list because
+            it will be fetched when we fetch the *orders* of the user, with a separate API)
+    Create FavoriteRestaurant List in User
+        -Annotate with @ElementCollection
+    Create Folder Dto
+        -Create class RestaurantDto
+        -Annotate with @Data(lombok) for getter setter method
+        -Create properties
+            *title, description, id
+            *List: images
+                ->Annotate with @Column of size:1000 because it is a url
+        -Annotate with @Embeddable (class will be embedded somewhere else)
+    Add address list property in User class (Will store users home addresses)
+    Create new *Address* entity
+        -Annotate with @Id and @GeneratedValue
+    Define relation of User to Addresses in User entity
+        -Will be OneToMany because 1 User -> Many addresses
+        -Annotate Cascade Type All, so when a user is deleted, all addresses are deleted
+    Continue creating *Order* entity properties
+        -add property: User and use @ManyToOne annotation. (Many orders to one user)
+        -add property: Restaurant 
+    Create *Restaurant* entity
+        -Add @Data,@Entity,@NoArgsConstructor,@AllArgsConstructor annotations
+        -Add @Id,@GeneratedValue for property "id"
+    Define relation of Order to Restaurant in Order entity
+        -Will be ManyToOne, many orders for 1 restaurant
+    Continue creating *Order* entity properties
+        -add property: total Amount, orderStatus, createdAt
+        -add property: deliveryAddress (Address Object)
+            with @ManytoOne notation (Many orders to One address)
+        -add property: OrderItem list with @OneToMany notation (one order with many items)
+    Create OrderItem entity with same annotations as previous created Entities.
+    Continue creating *Order* entity properties
+        -add property: totalItem, totalPrice
+    In *OrderItem* entity:
+        -Add *Food* property
+    Create a *Food* entity with Annotations
+    Define Relation between *OrderItem* and its *Food* property
+        -ManyToOne: Many orders can have the same food. (5 people can order pizza)
+    In *OrderItem* entity:
+        -Add properties: quantity, totalPrice, ingredients
+    In *Food* entity:
+        -Add properties: name, description, price 
+        -Add foodCategory(*Category* class)
+    Create *Category* entity with Annotations
+    In *Food* entity:
+        -Add properties: available(bool) and List of images
+        -Add restaurant(*Restaurant* class) @ManyToOne: One restaurant has many foods
+        -Add properties: isVegeterian, isSeasonal
+        -Add List of *Ingredients*
+    Create *IngredientsItem* with Annotations
+    In *Food* entity:
+        -Define relation between Food and IngredientsItem: @ManyToMany 
+            one food many ingredients and one ingredient many foods
+        -Add property: creationDate
+    In *Restaurant* entity:
+        -Add *User* property: owner @OneToOne
+        -Add properties: name, description, cuisineType
+        -Add *Address* property: address @OneToOne
+        -Add *ContactInformation* property: ContactInformation 
+            with @Embedded annotation
+    Create *ContactInformation* entity:
+        -Add only @Data
+        -Add properties: email, mobile, twitter, instagram
+    In *Restaurant* entity:
+        -Add property: openingHours
+        -Add list of *Order*: orders
+            *OneToMany: One restaurant has many orders
+                mapped by restaurant
+                Add Cascade so all orders in the restaurant are removed as well
+                    when a restaurant is deleted
+        -Add List for images with @ElementCollection so it can create its own table            
+        -Add properties: registrationDate, open
+        -Add List for *Food* with @OneToMany: One restaurant has many foods
+            *Also add @JsonIgnore, because we don't need to fetch the list when a restaurant
+                object is fetched
+    In *IngredientsItem* entity:
+        -Add property name
+        -Add *IngredientCategory* property: category 
+    Create *IngredientCategory* entity with all annotations
+        -Add property name
+        -Add *Restaurant* property: restaurant 
+            With @JsonIgnore and @ManyToOne 
+        -Add list of *IngredientsItem*
+            With @OneToMany and cascading
+    In *IngredientsItem* entity:
+        -Add *Restaurant* property 
+            with @JsonIgnore and @ManyToOne
+        -Add property: inStock= true
+    In *Category* entity:
+        -Add *Restaurant* property
+            with @JsonIgnore and @ManyToOne
+    Create *Cart* entity with annotations
+        -Add id with annotation
+        -Add *User* customer with @OneToOne
+        -Add property total
+        -Add list of *CartItem* with @OneToMany
+    Create *CartItem* entity with annotation
+        -Add id with annotation
+        -Add *Cart* cart with @ManyToOne and @JsonIgnore
+        -Add *Food* food with @ManyToOne
+        -Add properties: quantity, list of ingredients, totalPrice
+    
+    1.43.39
+
+3.
+    CREATE ALL THE REPOSITORIES
+    Create =UserRepository= interface
+        -Add findByEmail method
+
+4.  CONFIGURE SPRING SECURITY
+    Create Package config and create AppConfig class
+        -Add @Configuration and @EnableWebSecurity Annotation
+        -http.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            Means the app will not create or use HTTP sessions to store the user's authentication state.
+                Instead, each request must contain all the necessary information for authentication,
+                typically using tokens like JWT(JSON Web Tokens).
+        -Configure authorization rules for different HTTP Requests
+            *requestMatchers("/api/admin/**").hasAnyRole("RESTAURANT_OWNER", "ADMIN"),
+                Any request to URLs that starts with /api/admin/ should only be accessible to users 
+                    with role RESTAURANT_OWNER or ADMIN
+            *requestMatchers("/api/**").authenticated(),
+                Any requests to URLs that start with /api/ should be accessible to authenticated users only.
+            *anyRequest().permitAll(),
+                Any other request should be permitted to all users, regardless of their authentication status.     
+        *URLs = endpoints that clients can send requests to.*
+            *.addFilterBefore(new JwtTokenValidator(), BasicAuthenticationFilter.class),
+                Adds custom filter(JwtTokenValidator) before the BasicAuthenticationFilter in the filter chain.
+                JwtTokenValidator is responsible for validating JWT tokens in incoming requests, and putting it
+                    before the basic filter, ensures that JTW tokens are validated before any basic authentication
+                    logic is applied.
+            *.csrf(csrf -> csrf.disable()),
+                Disables Cross-Site Request Forgery(CSRF) protection.
+                (According to CoPilot, in stateless applications,like those using JWT for authentication)
+                    CSRF protection is unnecessary because the server does not maintain a session state.)
+            *.cors(cors -> cors.configurationSource(corsConfigurationSource()));
+                Configures Cross-Origin Resource Sharing(CORS) settings. CORS is a security feature that allows 
+                    or restricts resources on a web page to be requested from another domain outside the domain from    
+                    which the resource originated.
+        -Create private method corsConfigurationSource that return an object of type corsConfigurationSource
+            *Inside create an anonymous inner class that implements the corsConfigurationSource interface.
+                The getCorsConfiguration method is overriden to return a CorsConfiguration object
+                *Inside configure the CORS Settings as is the code (see comments in file)
+    Create JwtTokenValidator class
+    Add JwtToken Dependency
+        - jjwt, jjwt-impl, jjwt-jackson
+    Create JwtConstant class
+        - Add secret key (SECRET_KEY)
+        - Add Jwt header(autorization)
+    In JwtTokenValidator:
+        - Override the doFilterInternal method
+        - From the request, we extract the header "authorization" defined in *JwtConstant*
+        - We create a secret key from SECRET_KEY, define in *JwtConstant*
+        - Create a claims object:
+                *jwts.parser(): creates a new instance of a JwtParser, used to parse and validate JWTs.
+                *verifyWith(): sets the key that will be used to verify the signature of the JWT.
+                *build(): builds and returns the JwtParser instance based on the config provided.
+                *parseSignedClaims(): parses the JWT and verifies its signature using the key.
+                    returns a Jws<Claims> object, which contains the (claims)payload of the JWT.
+                *getPayload(): extracts the payload of the Jws<Claims> object.
+        - Extract the email value from claims
+        - Extract the authorities value from claims
+        - Convert the comma-separated string of authorities into a list of GrantedAuthority 
+            objects.
+        - Create an Authentication object with the user's email and authorities.
+        - Set the Authentication object in the SecurityContext, making the user's authentication 
+            information available for the current session.
+        -Lastly chain the filter with the next filter.
+
+5. CREATE SERVICE CustomerUserDetailsService
+    Annotate with @Service so Spring registers the class as a bean
+    In the class, add UserRepository and annotate with @Autowired, so Spring can handle the injection
+    Overload the loadUserByUsername method
+        -First create a user by searching with findByEmail(username)
+        -Get the user's Role. Default role has been defined in User.java as Customer
+        -Create a new GrantedAuthority list 
+        -Pass the user Role to the GrantedAuthority list 
+        -The loadUserByUsername method returns a User object with the email,password and his authority lsit
+
+6. CREATE CONTROLLERS
+    Create AuthController controller
+    Annotate with @RestController
+        *REST controllers are used to create RESTful web services. They handle HTTP requests
+            and responses, so the app can interact with clients over the web.
+            -RestController = Controller + ResponseBody. Means the methods in the controller 
+                will return data directly in the response body, in JSON or XML format typically.
+            -They use @RequestMapping, @GetMapping, @PostMapping, @PutMapping, @DeleteMapping etc.
+                to map HTTP requests to specific handler methods in the controller.
+        *REST = Representational State Transfer. Stateless, client-server, cacheable communications protocol,
+            meaning:the HTTP protocol.
+            -Stateless: Each request from a client to a server contains all the info needed to understand
+                and process the request. The server does not store any context between requests.
+    Annotate with @RequestMapping  
+    Add UserRepository, PasswordEncoder and jwtProvider objects.
+
+    Create JwtProvider Config file
+        -Will contain 3 methods: generateToken, getEmailFromJwtToken, populateAuthorities
+            *populateAuthorities(): This method takes a collection of objects that implement 
+                the GrantedAuthority interface. It extracts the authority (a string) from each 
+                GrantedAuthority object, adds it to a set to ensure uniqueness, and then joins 
+                these strings into a single comma-separated string.
+                Example:
+                    Input(This collection):
+                        Collection<GrantedAuthority> authorities = Arrays.asList(
+                            new SimpleGrantedAuthority("ROLE_USER"),
+                            new SimpleGrantedAuthority("ROLE_ADMIN"),
+                            new SimpleGrantedAuthority("ROLE_USER") // Duplicate role
+                        );
+                    Output: "ROLE_USER,ROLE_ADMIN"
+
+            *getEmailFromJwtToken(): This method extracts the email address from a JSON web token.
+                Example:
+                    Input: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZW1haWwiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+                    Output: john.doe@example.com
+
+            *generateToken(): This method creates A JSON Web Token for a given Authentication object.
+                First it retrieves the collection of GrantedAuthority objects from the Authentication object 
+                    and converts them into comma-separated string of roles using the populateAuthorities method
+                    described above.
+                Using the Jwts.builder() method it creates a JWT with the following claims:
+                    ->issuedAt: current date and time.
+                    ->expiration: expiration date and time of token (24 hours from the current time).
+                    ->email: email address of the authenticated user
+                    ->authorities: the roles of the authenticated user converted to string 
+                Then it signs the Web Token with the key 
+                And lastly it compacts it into a string format.
+                Example:
+                    Input(Authentication object):
+                        Email: demo@example.com
+                        Authorities: ROLE_USER, ROLE_ADMIN
+                    Output(A JWT String that looks like this):
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3N1ZWRBdCI6IjIwMjQtMTEtMTFUMTQ6MjA6MDBaIiwiZXhwaXJhdGlvbiI6IjIwMjQtMTEtMTJUMTQ6MjA6MDBaIiwiZW1haWwiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImF1dGhvcml0aWVzIjoiUk9MRV9VU0VSLFJPTEVfQURNSU4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+                    This string contains all the claims mentioned above, but note that the actual JWT is much longer and encoded.
+
+    Back to AuthController
+        -Create CustomerUserDetailsService and CartRepository
+        -Annotate everything with @Autowired
+    
+    Create CartRepository file in Repository package.
+    Create LoginRequest file in Request package.
+    Create AuthResponse file in Response package.
+
+    Back to AuthController
+        -Create 2 application endpoints "/signup", "/signin" and map these endpoints to createUserHandler
+            and signIn methods, respectively.
+        
+        -createUserHandler():
+            This method ensures that a new user is created, authenticated, and provided with a JWT token, 
+                while also creating a cart for the user. If the email is already in use, it prevents the 
+                creation of a duplicate account.
+        -signIn():
+            This method matches the user with existing credentials in teh database, and allows already
+                existing users to log in the application
+
+    Create HomeController
+
+    Create UserController
+	    -Controller Layer
+	    -In it we create 2 new endpoints: "/api/users/" and "/api/users/profile"
+	    -"/api/users/profile" will find users by their JwtToken.
+
+    Create UserService interface
+	    -Service Layer
+	    -Defines findByUserJwtToken() and findUserByEmail() methods
+
+    Create UserServiceImp implementation
+	    -Implements the interface methods.
+============================================================NOTE============================================================
+	->Creating a separate interface and implementation file, makes it easier
+		to read and understand the code, test it, make changes such as moving from a database-based implementation
+		to a memory-based one and in Dependency Injection.
+	->You can see Dependency Injection as having a factory where you build computers. By using dependency injection
+		you can offload the task of creating chips for your computers to a different company, and only have the 
+		task of "requesting" the chips from the other company. This way if you want to change chips, you don't 
+		need to change the whole manufacturing process in your factory e.g. the "building chips" task, 
+		but only the "requesting" task. This makes your factory-code more modular, easier to understand and scalable.
+============================================================================================================================
+
+            
+7. CREATE RESTAURANT API
+
+    Create RestaurantService interface and CreateRestaurantRequest
+        -RestaurantService interface, defines all methods related to creating,update,deleting 
+            as well as searching a restaurant, adding it to a users Favourites list etc.
+        -CreateRestaurantRequest is fed into the createRestaurant() method and contains information 
+            about the new restaurant created (id,name,description,cuisineType,address,contactInformation etc.)
+
+    Create RestaurantServiceImpl class to define the methods of the interface.
+        -Methods:
+            -> createRestaurant()
+            -> updateRestaurant()
+            -> deleteRestaurant()
+            -> getAllRestaurant()
+            -> searchRestaurant()
+            -> findRestaurantById()
+            -> getRestaurantByUserId()
+            -> addToFavourites()
+            -> updateRestaurantStatus()
+
+        -To use these methods we will import RestaurantRepository, AddressRepository and UserRepository
+    
+    Create RestaurantRepository.
+        -Methods:
+            -> findBySearchQuery():
+                Query is:"SELECT r FROM Restaurant r WHERE lower(r.name) LIKE lower(concat('%',:query,'%')) "+
+                    "OR lower(r.cuisineType) LIKE lower(concat('%',:query,'%'))"
+            -> findByOwnerId()
+
+    Create RestaurantController
+        - This rest controller is responsible for "/api/**" endpoind, so the HTTP header must have a ROLE_CUSTOMER JWT
+        - searchRestaurant(): mapped to "/search" endpoint. Uses searchRestaurant() method of RestaurantServiceImpl.
+        - getAllRestaurant()
+        - findByRestaurantId()
+        - addToFavourites()
+
+    Create AdminRestaurantController
+        - This is an "/api/admin/**" endpoint, so the HTTP header must have an ROLE_ADMIN or ROLE_RESTAURANT_OWNER JWT.
+        - createRestaurant()
+        - updateRestaurant()
+        - deleteRestaurant()
+        - updateRestaurantStatus()
+        - findRestaurantByUserId()
+
+8. CREATE FOOD API
+
+    Create FoodService interface
+        - createFood()
+        - deleteFood()
+        - getRestaurantsFood()
+        - searchFood()
+        - findFoodById()
+        - updateAvailabilityStatus()
+
+    Create FoodRepository interface
+        - findByRestaurantId()
+        - searchFood():
+            Query is: "SELECT f FROM Food f WHERE  f.name LIKE %:keyword% OR f.foodCategory.name LIKE %:keyword%"
+
+    Create FoodService Implementation file 
+    
+    Create FoodController file
+        - Responsible for "/api/food" endpoint and ROLE_CUSTOMER users.
+        - searchFood()
+        - getRestaurantFood();
+    
+    Create FoodController file for admins (AdminFoodController)
+        - Responsible for "/api/admin/food endpoints and ROLE_RESTAURANT_OWNER or ROLE_ADMIN users.
+        - createFood()
+        - deleteFood()
+        - updateFoodAvailabilityStatus()
+
+9. CREATE CATEGORY API
+    Create CategoryRepository, CategoryService interface and implementation
+        and CategoryController
