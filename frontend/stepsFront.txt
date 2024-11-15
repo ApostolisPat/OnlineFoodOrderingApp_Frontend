@@ -1,0 +1,16 @@
+1. Page Theme
+    In 'theme' folder, create DarkTheme.js
+        -Edit .palette value
+            -Choose default mode as dark 
+                -We can override the default values of dark mode with 'primary', 'secondary' etc.
+    
+    In App.js change the body colour by importing <CssBaseline>
+
+
+
+2. NavBar
+    -Create new component folder
+        -Create NavBar directory folder
+            -Create NavBar file
+                -In App.js, create a <Navbar> element inside <div>,
+                    and include <Navbar> in path
